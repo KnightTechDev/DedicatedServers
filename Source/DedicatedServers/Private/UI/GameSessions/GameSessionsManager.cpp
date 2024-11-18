@@ -26,11 +26,11 @@ void UGameSessionsManager::JoinGameSession()
 	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 
-	 UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
-	 if (IsValid(LocalPlayerSubsystem))
-	 {
-	 	Request->SetHeader(TEXT("Authorization"), LocalPlayerSubsystem->GetAuthResult().AccessToken);
-	 }
+	UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
+	if (IsValid(LocalPlayerSubsystem))
+	{
+		Request->SetHeader(TEXT("Authorization"), LocalPlayerSubsystem->GetAuthResult().AccessToken);
+	}
 	
 	Request->ProcessRequest();
 }
@@ -62,62 +62,39 @@ void UGameSessionsManager::FindOrCreateGameSession_Response(FHttpRequestPtr Requ
 
 void UGameSessionsManager::CreatePlayerSession_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
-	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() != 200)
+	if (!bWasSuccessful)
 	{
 		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
 	}
 
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Response->GetContentAsString());
-
-	if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
+	if (FJsonSerializer::Deserialize(JsonReader, JsonObject))
 	{
-		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
+		if (ContainsErrors(JsonObject))
+		{
+			BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		}
+
+		FDSPlayerSession PlayerSession;
+		FJsonObjectConverter::JsonObjectToUStruct(JsonObject.ToSharedRef(), &PlayerSession);
+		PlayerSession.Dump();
+		
+		APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (IsValid(LocalPlayerController))
+		{
+			FInputModeGameOnly InputModeData;
+			LocalPlayerController->SetInputMode(InputModeData);
+			LocalPlayerController->SetShowMouseCursor(false);
+		}
+
+		const FString Options = "?PlayerSessionId=" + PlayerSession.PlayerSessionId + "?Username=" + PlayerSession.PlayerId;
+		
+		const FString IpAndPort = PlayerSession.IpAddress + TEXT(":") + FString::FromInt(PlayerSession.Port);
+		const FName Address(*IpAndPort);
+		UGameplayStatics::OpenLevel(this, Address, true, Options);
 	}
-
-	if (ContainsErrors(JsonObject))
-	{
-		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
-	}
-
-	// Extract "PlayerSession" object
-	TSharedPtr<FJsonObject> PlayerSessionObject = JsonObject->GetObjectField("PlayerSession");
-	if (!PlayerSessionObject.IsValid())
-	{
-		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
-	}
-
-	FDSPlayerSession PlayerSession;
-	if (!FJsonObjectConverter::JsonObjectToUStruct(PlayerSessionObject.ToSharedRef(), &PlayerSession))
-	{
-		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
-	}
-
-	PlayerSession.Dump();
-
-	if (PlayerSession.IpAddress.IsEmpty() || PlayerSession.Port <= 0)
-	{
-		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		return;
-	}
-
-	APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
-	if (IsValid(LocalPlayerController))
-	{
-		FInputModeGameOnly InputModeData;
-		LocalPlayerController->SetInputMode(InputModeData);
-		LocalPlayerController->SetShowMouseCursor(false);
-	}
-
-	const FString IpAndPort = PlayerSession.IpAddress + TEXT(":") + FString::FromInt(PlayerSession.Port);
-	UGameplayStatics::OpenLevel(this, *IpAndPort);
 }
-
 
 FString UGameSessionsManager::GetUniquePlayerId() const
 {
@@ -139,21 +116,15 @@ void UGameSessionsManager::HandleGameSessionStatus(const FString& Status, const 
 	{
 		BroadcastJoinGameSessionMessage.Broadcast(TEXT("Found active Game Session. Creating a Player Session..."), false);
 
-		UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
-		if (IsValid(LocalPlayerSubsystem))
+		if (UDSLocalPlayerSubsystem* DSLocalPlayerSubsystem = GetDSLocalPlayerSubsystem(); IsValid(DSLocalPlayerSubsystem))
 		{
-			const FString PlayerId = LocalPlayerSubsystem->Username;
-			TryCreatePlayerSession(PlayerId, SessionId);
-			//TryCreatePlayerSession(GetUniquePlayerId(), SessionId);
+			TryCreatePlayerSession(DSLocalPlayerSubsystem->Username, SessionId);
 		}
-
-		
-		
 	}
 	else if (Status.Equals(TEXT("ACTIVATING")))
 	{
 		FTimerDelegate CreateSessionDelegate;
-		CreateSessionDelegate.BindUObject(this, &UGameSessionsManager::JoinGameSession);
+		CreateSessionDelegate.BindUObject(this, &ThisClass::JoinGameSession);
 		APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (IsValid(LocalPlayerController))
 		{
