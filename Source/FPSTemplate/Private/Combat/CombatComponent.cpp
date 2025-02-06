@@ -549,7 +549,7 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 
 	if (APlayerController* PC = Cast<APlayerController>(OwningPawn->GetController()); IsValid(PC))
 	{
-		FVector2D ViewportSize;
+		FVector2D ViewportSize = FVector2D::ZeroVector; // Initialize with default value
 		if (GEngine && GEngine->GameViewport)
 		{
 			GEngine->GameViewport->GetViewportSize(ViewportSize);
@@ -615,11 +615,12 @@ FVector UCombatComponent::HitScanTrace(float SweepRadius, FHitResult& OutHit)
 	ResponseParams.CollisionResponse.SetResponse(ECC_WorldDynamic, ECR_Block);
 	ResponseParams.CollisionResponse.SetResponse(ECC_PhysicsBody, ECR_Block);
 
-	FVector2D ViewportSize;
+	FVector2D ViewportSize = FVector2D::ZeroVector; // Initialize with default value
 	if (GEngine && GEngine->GameViewport)
 	{
 		GEngine->GameViewport->GetViewportSize(ViewportSize);
 	}
+
 
 	if (APlayerController* PC = Cast<APlayerController>(Cast<APawn>(GetOwner())->GetController()); IsValid(PC))
 	{
