@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "{9553B992-4077-C11F-F38D-F9BBB5967497}",
+	"EngineAssociation": "{14AE73E0-437D-48E9-9F7F-A5A515FE26C8}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -58,5 +58,8 @@
 			"Name": "GameLiftPlugin",
 			"Enabled": true
 		}
+	],
+	"TargetPlatforms": [
+		"Windows"
 	]
 }
