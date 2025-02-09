@@ -12,7 +12,7 @@
 #include "Interfaces/IHttpResponse.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/HTTP/HTTPRequestTypes.h"
-//#include "Player/DSLocalPlayerSubsystem.h"
+#include "Player/DSLocalPlayerSubsystem.h"
 
 void UGameSessionsManager::JoinGameSession()
 {
@@ -26,11 +26,11 @@ void UGameSessionsManager::JoinGameSession()
 	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 
-	// UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
-	// if (IsValid(LocalPlayerSubsystem))
-	// {
-	// 	Request->SetHeader(TEXT("Authorization"), LocalPlayerSubsystem->GetAuthResult().AccessToken);
-	// }
+	 UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
+	 if (IsValid(LocalPlayerSubsystem))
+	 {
+	 	Request->SetHeader(TEXT("Authorization"), LocalPlayerSubsystem->GetAuthResult().AccessToken);
+	 }
 	
 	Request->ProcessRequest();
 }
