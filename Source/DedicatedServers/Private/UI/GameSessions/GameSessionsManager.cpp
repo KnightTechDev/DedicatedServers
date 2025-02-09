@@ -62,37 +62,62 @@ void UGameSessionsManager::FindOrCreateGameSession_Response(FHttpRequestPtr Requ
 
 void UGameSessionsManager::CreatePlayerSession_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
-	if (!bWasSuccessful)
+	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() != 200)
 	{
 		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
 	}
 
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Response->GetContentAsString());
-	if (FJsonSerializer::Deserialize(JsonReader, JsonObject))
+
+	if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
 	{
-		if (ContainsErrors(JsonObject))
-		{
-			BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
-		}
-
-		FDSPlayerSession PlayerSession;
-		FJsonObjectConverter::JsonObjectToUStruct(JsonObject.ToSharedRef(), &PlayerSession);
-		PlayerSession.Dump();
-		
-		APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
-		if (IsValid(LocalPlayerController))
-		{
-			FInputModeGameOnly InputModeData;
-			LocalPlayerController->SetInputMode(InputModeData);
-			LocalPlayerController->SetShowMouseCursor(false);
-		}
-
-		const FString IpAndPort = PlayerSession.IpAddress + TEXT(":") + FString::FromInt(PlayerSession.Port);
-		const FName Address(*IpAndPort);
-		UGameplayStatics::OpenLevel(this, Address);
+		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
 	}
+
+	if (ContainsErrors(JsonObject))
+	{
+		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
+	}
+
+	// Extract "PlayerSession" object
+	TSharedPtr<FJsonObject> PlayerSessionObject = JsonObject->GetObjectField("PlayerSession");
+	if (!PlayerSessionObject.IsValid())
+	{
+		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
+	}
+
+	FDSPlayerSession PlayerSession;
+	if (!FJsonObjectConverter::JsonObjectToUStruct(PlayerSessionObject.ToSharedRef(), &PlayerSession))
+	{
+		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
+	}
+
+	PlayerSession.Dump();
+
+	if (PlayerSession.IpAddress.IsEmpty() || PlayerSession.Port <= 0)
+	{
+		BroadcastJoinGameSessionMessage.Broadcast(HTTPStatusMessages::SomethingWentWrong, true);
+		return;
+	}
+
+	APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
+	if (IsValid(LocalPlayerController))
+	{
+		FInputModeGameOnly InputModeData;
+		LocalPlayerController->SetInputMode(InputModeData);
+		LocalPlayerController->SetShowMouseCursor(false);
+	}
+
+	const FString IpAndPort = PlayerSession.IpAddress + TEXT(":") + FString::FromInt(PlayerSession.Port);
+	UGameplayStatics::OpenLevel(this, *IpAndPort);
 }
+
 
 FString UGameSessionsManager::GetUniquePlayerId() const
 {
