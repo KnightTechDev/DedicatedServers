@@ -102,7 +102,7 @@ FString UGameSessionsManager::GetUniquePlayerId() const
 		APlayerState* LocalPlayerState = LocalPlayerController->GetPlayerState<APlayerState>();
 		if (IsValid(LocalPlayerState) && LocalPlayerState->GetUniqueId().IsValid())
 		{
-			return TEXT("Player_") + FString::FromInt(LocalPlayerState->GetUniqueID());
+			return TEXT("TestUser"); //TEXT("Player_") + FString::FromInt(LocalPlayerState->GetUniqueID());
 		}
 	}
 	return FString();
@@ -118,7 +118,7 @@ void UGameSessionsManager::HandleGameSessionStatus(const FString& Status, const 
 	else if (Status.Equals(TEXT("ACTIVATING")))
 	{
 		FTimerDelegate CreateSessionDelegate;
-		CreateSessionDelegate.BindUObject(this, &ThisClass::JoinGameSession);
+		CreateSessionDelegate.BindUObject(this, &UGameSessionsManager::JoinGameSession);
 		APlayerController* LocalPlayerController = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (IsValid(LocalPlayerController))
 		{
