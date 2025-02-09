@@ -127,7 +127,7 @@ FString UGameSessionsManager::GetUniquePlayerId() const
 		APlayerState* LocalPlayerState = LocalPlayerController->GetPlayerState<APlayerState>();
 		if (IsValid(LocalPlayerState) && LocalPlayerState->GetUniqueId().IsValid())
 		{
-			return TEXT("TestUser"); //TEXT("Player_") + FString::FromInt(LocalPlayerState->GetUniqueID());
+			return TEXT("Player_") + FString::FromInt(LocalPlayerState->GetUniqueID());
 		}
 	}
 	return FString();
@@ -138,7 +138,17 @@ void UGameSessionsManager::HandleGameSessionStatus(const FString& Status, const 
 	if (Status.Equals(TEXT("ACTIVE")))
 	{
 		BroadcastJoinGameSessionMessage.Broadcast(TEXT("Found active Game Session. Creating a Player Session..."), false);
-		TryCreatePlayerSession(GetUniquePlayerId(), SessionId);
+
+		UDSLocalPlayerSubsystem* LocalPlayerSubsystem = GetDSLocalPlayerSubsystem();
+		if (IsValid(LocalPlayerSubsystem))
+		{
+			const FString PlayerId = LocalPlayerSubsystem->Username;
+			TryCreatePlayerSession(PlayerId, SessionId);
+			//TryCreatePlayerSession(GetUniquePlayerId(), SessionId);
+		}
+
+		
+		
 	}
 	else if (Status.Equals(TEXT("ACTIVATING")))
 	{
