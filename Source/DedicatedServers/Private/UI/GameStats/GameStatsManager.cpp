@@ -194,6 +194,7 @@ void UGameStatsManager::RetrieveLeaderboard_Response(FHttpRequestPtr Request, FH
 	}
 	OnRetrieveLeaderboard.Broadcast(LeaderboardItems);
 	RetrieveLeaderboardStatusMessage.Broadcast(TEXT(""), false);
+	
 }
 
 
